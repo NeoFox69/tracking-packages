@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tracking Packages — Rastreamento de Encomendas</title>
+<link rel="stylesheet" href="style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📦</text></svg>">
+</head>
+<body>
+<div id="app">
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">📦</span>
+      <div>
+        <h1>Tracking Packages</h1>
+        <p class="subtitle">Rastreamento completo de encomendas</p>
+      </div>
+    </div>
+    <nav class="nav">
+      <button class="nav-btn active" data-view="dashboard">Dashboard</button>
+      <button class="nav-btn" data-view="packages">Encomendas</button>
+      <button class="nav-btn" data-view="add">Adicionar</button>
+      <button class="nav-btn" data-view="scan">Scanner</button>
+      <button class="nav-btn" data-view="map">Mapa</button>
+      <button class="nav-btn" data-view="alerts">Alertas</button>
+      <button class="nav-btn" data-view="stats">Estatísticas</button>
+      <button class="nav-btn" data-view="settings">Definições</button>
+    </nav>
+    <div class="top-actions">
+      <button id="refreshAll" class="btn btn-primary">⟳ Atualizar tudo</button>
+      <span id="wsStatus" class="ws-status" title="WebSocket">●</span>
+    </div>
+  </header>
+
+  <main id="main">
+    <section id="view-dashboard" class="view active">
+      <div class="cards" id="statCards"></div>
+      <div class="grid2">
+        <div class="panel">
+          <h2>Encomendas recentes</h2>
+          <div id="recentList" class="list"></div>
+        </div>
+        <div class="panel">
+          <h2>Por transportadora</h2>
+          <div id="carrierBars" class="bars"></div>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>Atividade recente</h2>
+        <div id="activityFeed" class="feed"></div>
+      </div>
+    </section>
+
+    <section id="view-packages" class="view">
+      <div class="toolbar">
+        <input id="searchBox" type="search" placeholder="Pesquisar número, transportadora, etiqueta...">
+        <select id="filterCarrier"><option value="">Todas transportadoras</option></select>
+        <select id="filterStatus"><option value="">Todos estados</option>
+          <option value="pending">Pendente</option>
+          <option value="in transit">Em trânsito</option>
+          <option value="out for delivery">Saiu para entrega</option>
+          <option value="delivered">Entregue</option>
+          <option value="exception">Exceção</option>
+          <option value="returned">Devolvido</option>
+        </select>
+        <label class="chk"><input type="checkbox" id="showArchived"> Mostrar arquivadas</label>
+        <button id="exportCsv" class="btn">Exportar CSV</button>
+        <button id="exportJson" class="btn">Exportar JSON</button>
+      </div>
+      <div id="packagesGrid" class="packages-grid"></div>
+    </section>
+
+    <section id="view-add" class="view">
+      <div class="panel narrow">
+        <h2>Adicionar encomenda</h2>
+        <form id="addForm">
+          <label>Número de tracking
+            <input id="addNumber" required placeholder="ex: 1Z999AA10123456784">
+          </label>
+          <label>Transportadora (auto-detectada)
+            <select id="addCarrier"><option value="">Auto-detectar</option></select>
+          </label>
+          <label>Etiqueta / nome
+            <input id="addLabel" placeholder="ex: Compra Amazon">
+          </label>
+          <label>Notas
+            <textarea id="addNotes" rows="3"></textarea>
+          </label>
+          <button type="submit" class="btn btn-primary">Adicionar e rastrear</button>
+        </form>
+        <p class="hint">Dica: pode colar vários números separados por vírgula ou nova linha.</p>
+        <form id="bulkForm">
+          <label>Adicionar em massa
+            <textarea id="bulkNumbers" rows="5" placeholder="Um número por linha ou separados por vírgula"></textarea>
+          </label>
+          <button type="submit" class="btn">Adicionar todos</button>
+        </form>
+      </div>
+    </section>
+
+    <section id="view-scan" class="view">
+      <div class="panel">
+        <h2>Scanner de texto / email</h2>
+        <p class="hint">Cole um email, recibo ou mensagem — detetamos automaticamente os números de tracking.</p>
+        <textarea id="scanText" rows="8" placeholder="Cole aqui..."></textarea>
+        <div class="row">
+          <button id="scanBtn" class="btn btn-primary">Detetar números</button>
+          <button id="scanAddAll" class="btn">Adicionar todos detetados</button>
+        </div>
+        <div id="scanResults" class="scan-results"></div>
+      </div>
+      <div class="panel">
+        <h2>Histórico de scans</h2>
+        <div id="scanHistory" class="list"></div>
+      </div>
+    </section>
+
+    <section id="view-map" class="view">
+      <div class="panel">
+        <h2>Mapa de rota</h2>
+        <p class="hint">Selecione uma encomenda para ver a rota no mapa.</p>
+        <select id="mapSelect"></select>
+        <div id="mapContainer" class="map-container">
+          <div id="map" class="map"></div>
+        </div>
+        <div id="routeInfo" class="route-info"></div>
+      </div>
+    </section>
+
+    <section id="view-alerts" class="view">
+      <div class="panel">
+        <h2>Alertas e notificações</h2>
+        <form id="alertForm" class="row">
+          <select id="alertPackage"><option value="">Todas as encomendas</option></select>
+          <select id="alertType">
+            <option value="status">Mudança de estado</option>
+            <option value="delivered">Entregue</option>
+            <option value="exception">Exceção</option>
+            <option value="eta">Alteração de ETA</option>
+          </select>
+          <select id="alertChannel">
+            <option value="email">Email</option>
+            <option value="webhook">Webhook</option>
+            <option value="browser">Navegador</option>
+          </select>
+          <input id="alertTarget" placeholder="email ou URL webhook">
+          <button type="submit" class="btn btn-primary">Criar alerta</button>
+        </form>
+        <div id="alertsList" class="list"></div>
+      </div>
+    </section>
+
+    <section id="view-stats" class="view">
+      <div class="cards" id="statsCards"></div>
+      <div class="grid2">
+        <div class="panel"><h2>Por transportadora</h2><div id="statsCarrier" class="bars"></div></div>
+        <div class="panel"><h2>Por estado</h2><div id="statsStatus" class="bars"></div></div>
+      </div>
+      <div class="panel"><h2>Tempos de entrega (dias)</h2><div id="statsDelivery" class="bars"></div></div>
+    </section>
+
+    <section id="view-settings" class="view">
+      <div class="panel narrow">
+        <h2>Definições</h2>
+        <form id="settingsForm">
+          <label>Auto-refresh (minutos)
+            <input id="setRefresh" type="number" min="5" value="30">
+          </label>
+          <label>Chave API 17Track (opcional)
+            <input id="set17" type="password" placeholder="API_TOKEN_17TRACK">
+          </label>
+          <label>Chave API TrackingMore (opcional)
+            <input id="setTM" type="password" placeholder="TRACKINGMORE_API_KEY">
+          </label>
+          <label>Webhook URL (notificações)
+            <input id="setWebhook" placeholder="https://...">
+          </label>
+          <label>Tema
+            <select id="setTheme">
+              <option value="dark">Escuro</option>
+              <option value="light">Claro</option>
+            </select>
+          </label>
+          <button type="submit" class="btn btn-primary">Guardar</button>
+        </form>
+        <p class="hint">As chaves API são guardadas no servidor (variáveis de ambiente). Defina-as no ficheiro .env ou no ambiente.</p>
+      </div>
+    </section>
+  </main>
+
+  <div id="modal" class="modal hidden">
+    <div class="modal-card">
+      <button class="modal-close" id="modalClose">✕</button>
+      <div id="modalBody"></div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
