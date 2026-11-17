@@ -1,0 +1,36 @@
+# Portainer Stack — copy this entire content into Portainer:
+#   Stacks > Add stack > Web editor > paste > Deploy
+# The image is pulled from GitHub Container Registry on each deploy.
+# For private repo or alternate registry, add credentials in Portainer > Registries.
+
+services:
+  tracking-packages:
+    image: ghcr.io/neofox69/tracking-packages:latest
+    container_name: tracking-packages
+    restart: unless-stopped
+    ports:
+      - "4200:4200"
+    environment:
+      NODE_ENV: production
+      PORT: "4200"
+      DATA_DIR: /data/tracking-packages
+      # Fill in your API keys below (optional). Leave empty to use public carrier pages.
+      API_TOKEN_17TRACK: ""
+      TRACKINGMORE_API_KEY: ""
+      FEDEX_API_KEY: ""
+      FEDEX_API_SECRET: ""
+      UPS_CLIENT_ID: ""
+      UPS_CLIENT_SECRET: ""
+      DHL_API_KEY: ""
+    volumes:
+      - tracking-data:/data/tracking-packages
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:4200/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  tracking-data:
+    driver: local

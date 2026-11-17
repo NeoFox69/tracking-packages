@@ -1,4 +1,8 @@
 node_modules/
-data/
 .env
 *.db
+*.db-wal
+*.db-shm
+data/
+.DS_Store
+npm-debug.log*
